@@ -1,22 +1,46 @@
-# main.py
-import ssl
-
-# DESACTIVAR VERIFICACIÓN SSL PARA CARGAR IMÁGENES POR URL SIN ERRORES
-try:
-    _create_unverified_https_context = ssl._create_unverified_context
-except AttributeError:
-    pass
-else:
-    ssl._create_default_https_context = _create_unverified_https_context
-
-# --- CONTINUACIÓN NORMAL DE TU APP ---
 from kivy.app import App
-from screen_manager import AppScreenManager
+from kivy.uix.screenmanager import ScreenManager, Screen
 
-class TesoePopApp(App):
+from login.login_screen import LoginScreen
+from login.register_screen import RegisterScreen
+from products.products_screen import ProductScreen
+from cart.cart_screen import CartScreen
+
+
+class MainApp(App):
+
     def build(self):
-        # Inicializa y retorna el ScreenManager personalizado
-        return AppScreenManager()
 
-if __name__ == '__main__':
-    TesoePopApp().run()
+        self.sm = ScreenManager()
+
+        # LOGIN
+        self.sm.add_widget(LoginScreen(name="login"))
+
+        # REGISTER (YA EXISTE EN TU PROYECTO)
+        self.sm.add_widget(RegisterScreen(name="register"))
+
+        # PRODUCTS
+        products = Screen(name="products")
+        self.products_widget = ProductScreen(self.change)
+        products.add_widget(self.products_widget)
+        self.sm.add_widget(products)
+
+        # CART
+        cart = Screen(name="cart")
+        self.cart_widget = CartScreen(self.change)
+        cart.add_widget(self.cart_widget)
+        self.sm.add_widget(cart)
+
+        # INICIO
+        self.sm.current = "login"
+
+        return self.sm
+
+    def change(self, name):
+        self.sm.current = name
+
+        if name == "cart":
+            self.cart_widget.update()
+
+
+MainApp().run()

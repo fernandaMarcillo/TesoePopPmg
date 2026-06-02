@@ -1,156 +1,130 @@
-# cart/cart_screen.py
-from kivy.uix.screenmanager import Screen
 from kivy.uix.boxlayout import BoxLayout
-from kivy.uix.scrollview import ScrollView
 from kivy.uix.label import Label
 from kivy.uix.button import Button
-from kivy.uix.image import AsyncImage
-from kivy.graphics import Color, RoundedRectangle
+from kivy.uix.scrollview import ScrollView
+from kivy.uix.gridlayout import GridLayout
+from kivy.graphics import Color, Rectangle
 
-import colors
+from utils.cart import carrito
 
-CARRITO_TEMPORAL = {}
 
-class CartScreen(Screen):
-    def on_enter(self, *args):
-        self.actualizar_interfaz_carrito()
+BG = (1, 0.92, 0.95, 1)
+PINK = (1, 0.45, 0.75, 1)
+TEXT = (0, 0, 0, 1)
 
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        self.main_layout = BoxLayout(orientation='vertical')
-        self.add_widget(self.main_layout)
 
-    def actualizar_interfaz_carrito(self):
-        self.main_layout.clear_widgets()
+class CartScreen(BoxLayout):
 
-        navbar = BoxLayout(orientation='horizontal', size_hint_y=None, height=56, padding=10, spacing=5)
-        with navbar.canvas.before:
-            Color(rgba=colors.COLOR_ROSADO_BOTON)
-            self.nav_rect = RoundedRectangle(size=navbar.size, pos=navbar.pos)
-        navbar.bind(size=self._update_nav, pos=self._update_nav)
+    def __init__(self, change_screen, **kwargs):
+        super().__init__(orientation="vertical", **kwargs)
 
-        navbar.add_widget(Label(text="Tu Orden 🛒", bold=True, color=colors.COLOR_CAFE, font_size='16sp', size_hint_x=0.4))
-        
-        btn_catalogo = Button(text="Catálogo 🍰", background_color=(0,0,0,0), color=colors.COLOR_CAFE, bold=True)
-        btn_catalogo.bind(on_press=lambda x: setattr(self.manager, 'current', 'products'))
-        navbar.add_widget(btn_catalogo)
-        
-        btn_perfil = Button(text="Perfil 👤", background_color=(0,0,0,0), color=colors.COLOR_CAFE, bold=True)
-        btn_perfil.bind(on_press=lambda x: setattr(self.manager, 'current', 'profile'))
-        navbar.add_widget(btn_perfil)
-        self.main_layout.add_widget(navbar)
+        self.change_screen = change_screen
 
-        if not CARRITO_TEMPORAL:
-            empty_box = BoxLayout(orientation='vertical', padding=40, spacing=20)
-            with empty_box.canvas.before:
-                Color(rgba=colors.COLOR_ROSADO_FONDO)
-                self.bg_rect = RoundedRectangle(size=empty_box.size, pos=empty_box.pos)
-            empty_box.bind(size=self._update_bg, pos=self._update_bg)
+        # fondo
+        with self.canvas.before:
+            Color(*BG)
+            self.rect = Rectangle(size=self.size, pos=self.pos)
 
-            empty_box.add_widget(AsyncImage(source='https://cdn-icons-png.flaticon.com/512/11329/11329060.png', size_hint_y=None, height=120))
-            empty_box.add_widget(Label(text="Tu carrito está vacío", font_size='20sp', bold=True, color=colors.COLOR_CAFE, halign='center'))
-            empty_box.add_widget(Label(size_hint_y=1))
-            self.main_layout.add_widget(empty_box)
+        self.bind(size=self._update_bg, pos=self._update_bg)
+
+        # título
+        self.add_widget(Label(
+            text="🛒 CARRITO",
+            size_hint_y=None,
+            height=60,
+            font_size=26,
+            color=TEXT
+        ))
+
+        # scroll
+        self.scroll = ScrollView()
+        self.cont = GridLayout(cols=1, size_hint_y=None, spacing=12, padding=12)
+        self.cont.bind(minimum_height=self.cont.setter("height"))
+        self.scroll.add_widget(self.cont)
+        self.add_widget(self.scroll)
+
+        # total
+        self.total_label = Label(
+            text="Total: 0.00",
+            size_hint_y=None,
+            height=60,
+            font_size=20,
+            color=TEXT
+        )
+        self.add_widget(self.total_label)
+
+        # volver
+        back = Button(
+            text="VOLVER A TIENDA",
+            size_hint_y=None,
+            height=50,
+            background_color=PINK
+        )
+        back.bind(on_press=lambda x: self.change_screen("product"))
+        self.add_widget(back)
+
+        self.update()
+
+    def _update_bg(self, *args):
+        self.rect.size = self.size
+        self.rect.pos = self.pos
+
+    def update(self):
+
+        self.cont.clear_widgets()
+
+        if not carrito:
+            self.cont.add_widget(Label(text="Carrito vacío", color=TEXT))
+            self.total_label.text = "Total: 0.00"
             return
 
-        scroll = ScrollView()
-        container = BoxLayout(orientation='vertical', size_hint_y=None, spacing=10, padding=12)
-        container.bind(minimum_height=container.setter('height'))
+        total = 0
 
-        total_acumulado = 0.0
+        for item in carrito:
 
-        for prod_id, item_info in list(CARRITO_TEMPORAL.items()):
-            producto = item_info["datos"]
-            cantidad = item_info["cantidad"]
-            subtotal_item = producto["precio"] * cantidad
-            total_acumulado += subtotal_item
+            subtotal = item["precio"] * item["cantidad"]
+            total += subtotal
 
-            tarjeta_item = BoxLayout(orientation='horizontal', size_hint_y=None, height=95, padding=8, spacing=10)
-            with tarjeta_item.canvas.before:
-                Color(rgba=colors.COLOR_BEIGE)
-                rect = RoundedRectangle(size=tarjeta_item.size, pos=tarjeta_item.pos, radius=[8])
-            tarjeta_item.bind(size=lambda inst, val, r=rect: setattr(r, 'size', val), pos=lambda inst, val, r=rect: setattr(r, 'pos', val))
+            row = BoxLayout(
+                size_hint_y=None,
+                height=60,
+                spacing=10,
+                padding=5
+            )
 
-            tarjeta_item.add_widget(AsyncImage(source=producto["imagen"], size_hint_x=0.2, allow_stretch=True, keep_ratio=False))
+            name = Label(text=item["nombre"], color=TEXT, size_hint_x=0.35)
 
-            detalles = BoxLayout(orientation='vertical', spacing=2, size_hint_x=0.45)
-            detalles.add_widget(Label(text=producto['nombre'], bold=True, color=colors.COLOR_CAFE, font_size='14sp', halign='left'))
-            detalles.add_widget(Label(text=f"Subtotal: ${subtotal_item:.2f}", bold=True, color=colors.COLOR_CAFE, font_size='13sp'))
-            tarjeta_item.add_widget(detalles)
+            minus = Button(text="-", size_hint_x=0.1, background_color=PINK)
+            qty = Label(text=str(item["cantidad"]), size_hint_x=0.1, color=TEXT)
+            plus = Button(text="+", size_hint_x=0.1, background_color=PINK)
+            subtotal_lbl = Label(text=f"{subtotal:.2f}", size_hint_x=0.25, color=TEXT)
+            delete = Button(text="X", size_hint_x=0.1, background_color=PINK)
 
-            panel_edicion = BoxLayout(orientation='vertical', spacing=5, size_hint_x=0.35)
-            controles_num = BoxLayout(orientation='horizontal', spacing=2)
-            
-            btn_menos = Button(text="-", font_size='16sp', bold=True, background_normal='', background_color=colors.COLOR_ROSADO_BOTON, color=colors.COLOR_CAFE)
-            btn_menos.bind(on_press=lambda instance, pid=prod_id: self.modificar_cantidad_logica(pid, -1))
-            
-            lbl_cantidad = Label(text=str(cantidad), bold=True, color=colors.COLOR_CAFE, font_size='14sp')
-            
-            btn_mas = Button(text="+", font_size='16sp', bold=True, background_normal='', background_color=colors.COLOR_ROSADO_BOTON, color=colors.COLOR_CAFE)
-            btn_mas.bind(on_press=lambda instance, pid=prod_id: self.modificar_cantidad_logica(pid, 1))
-            
-            controles_num.add_widget(btn_menos)
-            controles_num.add_widget(lbl_cantidad)
-            controles_num.add_widget(btn_mas)
-            panel_edicion.add_widget(controles_num)
+            minus.bind(on_press=lambda x, i=item: self.decrease(i))
+            plus.bind(on_press=lambda x, i=item: self.increase(i))
+            delete.bind(on_press=lambda x, i=item: self.remove(i))
 
-            btn_eliminar_todo = Button(text="Quitar 🗑️", font_size='10sp', background_normal='', background_color=(0.9, 0.4, 0.4, 0.15), color=(0.8, 0.2, 0.2, 1), size_hint_y=None, height=24)
-            btn_eliminar_todo.bind(on_press=lambda instance, pid=prod_id: self.eliminar_item_logica(pid))
-            panel_edicion.add_widget(btn_eliminar_todo)
+            row.add_widget(name)
+            row.add_widget(minus)
+            row.add_widget(qty)
+            row.add_widget(plus)
+            row.add_widget(subtotal_lbl)
+            row.add_widget(delete)
 
-            tarjeta_item.add_widget(panel_edicion)
-            container.add_widget(tarjeta_item)
+            self.cont.add_widget(row)
 
-        scroll.add_widget(container)
-        self.main_layout.add_widget(scroll)
+        self.total_label.text = f"Total: {total:.2f}"
 
-        resumen_panel = BoxLayout(orientation='vertical', size_hint_y=None, height=130, padding=15, spacing=10)
-        with resumen_panel.canvas.before:
-            Color(rgba=colors.COLOR_ROSADO_FONDO)
-            self.res_rect = RoundedRectangle(size=resumen_panel.size, pos=resumen_panel.pos)
-        resumen_panel.bind(size=self._update_res, pos=self._update_res)
+    def increase(self, item):
+        item["cantidad"] += 1
+        self.update()
 
-        fila_total = BoxLayout(orientation='horizontal', size_hint_y=None, height=30)
-        fila_total.add_widget(Label(text="TOTAL COMPRA:", font_size='16sp', bold=True, color=colors.COLOR_CAFE))
-        fila_total.add_widget(Label(text=f"${total_acumulado:.2f}", font_size='20sp', bold=True, color=colors.COLOR_CAFE, halign='right'))
-        resumen_panel.add_widget(fila_total)
+    def decrease(self, item):
+        item["cantidad"] -= 1
+        if item["cantidad"] <= 0:
+            carrito.remove(item)
+        self.update()
 
-        btn_checkout = Button(text="PROCESAR PEDIDO ✅", background_normal='', background_color=colors.COLOR_ROSADO_BOTON, color=colors.COLOR_CAFE, bold=True, size_hint_y=None, height=48)
-        btn_checkout.bind(on_press=self.ejecutar_checkout_exitoso)
-        resumen_panel.add_widget(btn_checkout)
-        self.main_layout.add_widget(resumen_panel)
-
-    def modificar_cantidad_logica(self, prod_id, cambio):
-        if prod_id in CARRITO_TEMPORAL:
-            CARRITO_TEMPORAL[prod_id]["cantidad"] += cambio
-            if CARRITO_TEMPORAL[prod_id]["cantidad"] <= 0:
-                CARRITO_TEMPORAL.pop(prod_id)
-            self.actualizar_interfaz_carrito()
-
-    def eliminar_item_logica(self, prod_id):
-        if prod_id in CARRITO_TEMPORAL:
-            CARRITO_TEMPORAL.pop(prod_id)
-        self.actualizar_interfaz_carrito()
-
-    def ejecutar_checkout_exitoso(self, instance):
-        CARRITO_TEMPORAL.clear()
-        self.main_layout.clear_widgets()
-        layout_exito = BoxLayout(orientation='vertical', padding=40, spacing=25)
-        with layout_exito.canvas.before:
-            Color(rgba=colors.COLOR_ROSADO_FONDO)
-            self.ex_rect = RoundedRectangle(size=layout_exito.size, pos=layout_exito.pos)
-        layout_exito.bind(size=self._update_ex, pos=self._update_ex)
-
-        layout_exito.add_widget(AsyncImage(source='https://cdn-icons-png.flaticon.com/512/4436/4436481.png', size_hint_y=None, height=140))
-        layout_exito.add_widget(Label(text="¡Pedido Recibido! 🎉", font_size='26sp', bold=True, color=colors.COLOR_CAFE, halign='center'))
-        layout_exito.add_widget(Label(size_hint_y=1))
-
-        btn_volver = Button(text="Volver a la Tienda", background_normal='', background_color=colors.COLOR_ROSADO_BOTON, color=colors.COLOR_CAFE, bold=True, size_hint_y=None, height=50)
-        btn_volver.bind(on_press=lambda x: setattr(self.manager, 'current', 'products'))
-        layout_exito.add_widget(btn_volver)
-        self.main_layout.add_widget(layout_exito)
-
-    def _update_nav(self, instance, value): self.nav_rect.pos = instance.pos; self.nav_rect.size = instance.size
-    def _update_bg(self, instance, value): self.bg_rect.pos = instance.pos; self.bg_rect.size = instance.size
-    def _update_res(self, instance, value): self.res_rect.pos = instance.pos; self.res_rect.size = instance.size
-    def _update_ex(self, instance, value): self.ex_rect.pos = instance.pos; self.ex_rect.size = instance.size
+    def remove(self, item):
+        carrito.remove(item)
+        self.update()

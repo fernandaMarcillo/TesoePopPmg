@@ -20,3 +20,11 @@ USUARIOS_REGISTRADOS = {
         "rol": "admin"
     }
 }
+
+USUARIOS_REGISTRADOS = {
+    "acs.martinez@yavirac.edu.ec": {
+        "nombre": "Alan Martinez",
+        "pass": "12345",
+        "rol": "cliente"
+    },
+}
